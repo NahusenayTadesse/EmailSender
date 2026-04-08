@@ -1,128 +1,160 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import { Loader, CircleCheck, CircleAlert, SendHorizontal, Mail } from '@lucide/svelte';
+	import {
+		Loader,
+		CircleCheck,
+		CircleAlert,
+		SendHorizontal,
+		Mail,
+		Eye,
+		EyeClosed
+	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
-	import { fly } from 'svelte/transition';
 	import RichTextEditor from '$lib/RichTextEditor.svelte';
 	import { toast } from 'svelte-sonner';
 
-	let { form } = $props();
+	import { superForm } from 'sveltekit-superforms';
 
-	let value = $state('');
-	let loading = $state(false);
-	let visible = $state(false);
-	let errorVisible = $state(false);
+	let { data } = $props();
 
-	function onsubmit() {
-		loading = true;
-	}
+	const { form, errors, delayed, enhance, allErrors, message } = superForm(data.form);
 
 	$effect(() => {
-		if (form?.success) {
-			toast.success('Email sent successfully.');
-			loading = false;
-			visible = true;
-			const timer = setTimeout(() => (visible = false), 5000);
-			return () => clearTimeout(timer);
-		}
-		if (form?.error) {
-			loading = false;
-			toast.error('Failed to send email.');
-			errorVisible = true;
-			const timer = setTimeout(() => (errorVisible = false), 5000);
-			return () => clearTimeout(timer);
+		if ($message) {
+			if ($message.type === 'error') {
+				toast.error($message.text);
+				$form.message = '';
+			} else {
+				toast.success($message.text);
+			}
 		}
 	});
 
-	// $effect(() => {
-	// 	if (form?.success) {
-	// 		toast.success(form?.message || 'Email sent successfully.');
-	// 	}
-	// 	if (!form?.success) {
-	// 		toast.error(form?.message || 'Failed to send email.');
-	// 	}
-	// });
+	let password = $state(false);
+	let passwordText = $state('');
+	let type = $state(false);
+
+	let EyePass = $derived(type ? Eye : EyeClosed);
+
+	function togglePassword(passwordText: string) {
+		if (passwordText === 'CrossRiverPassword@123') {
+			password = true;
+			toast.success('Password Correct');
+		} else {
+			toast.error('Incorrect Password');
+		}
+	}
 </script>
 
 <svelte:head>
 	<title>Compose Message | Professional Email</title>
 </svelte:head>
 
-<main class="container flex max-w-3xl items-center justify-self-center py-10">
-	<Card.Root class="w-full shadow-xl">
+<main
+	class="container flex h-screen max-w-3xl items-center justify-center justify-self-center py-10"
+>
+	<Card.Root class=" min-h-96 w-full shadow-xl">
 		<Card.Header class="space-y-1">
-			<div class="flex items-center gap-2">
-				<Mail class="h-6 w-6 text-primary" />
-				<Card.Title class="text-2xl">New Message</Card.Title>
-			</div>
 			<Card.Description>
-				Send a professional email to your recipients. All fields are required.
+				<img src="/logoMain.webp" alt="logo" class="jusfity-self-center h-1/2 w-1/2 rounded-lg" />
+				<div class="my-4 flex items-center gap-2">
+					<Mail class="h-6 w-6 text-primary" />
+					<Card.Title class="text-2xl">New Message</Card.Title>
+				</div>
+				{#if password}
+					Send a professional email to your recipients. All fields are required.
+				{:else}
+					Enter you password and hit enter to Send professional emails.
+				{/if}
 			</Card.Description>
 		</Card.Header>
 
 		<Card.Content>
-			<form method="POST" use:enhance {onsubmit} class="space-y-6">
-				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-					<div class="space-y-2">
-						<Label for="name">Recipient Name</Label>
-						<Input id="name" name="name" placeholder="John Doe" required />
-					</div>
-					<div class="space-y-2">
-						<Label for="email">Recipient Email</Label>
-						<Input id="email" name="email" type="email" placeholder="john@example.com" required />
-					</div>
-				</div>
-
-				<div class="space-y-2">
-					<Label for="subject">Subject Line</Label>
-					<Input id="subject" name="subject" placeholder="Project Update Regarding..." required />
-				</div>
-
-				<div class="space-y-2">
-					<Label>Message Body</Label>
-					<div
-						class="min-h-[200px] rounded-md border border-input bg-background transition-colors focus-within:ring-1 focus-within:ring-ring"
+			{#if !password}
+				<div class="relative">
+					<Input
+						id="password"
+						bind:value={passwordText}
+						name="password"
+						type={type ? 'text' : 'password'}
+						onchange={() => togglePassword(passwordText)}
+						placeholder="Enter password"
+					/>
+					<button
+						class="absolute top-1/2 right-2 -translate-y-1/2 text-primary"
+						onclick={() => (type = !type)}><EyePass class="h-4 w-4 text-primary" /></button
 					>
-						<RichTextEditor bind:value />
-					</div>
-					<input type="hidden" name="message" bind:value />
 				</div>
+			{/if}
+			{#if password}
+				<form method="POST" use:enhance class="space-y-6">
+					<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+						<div class="space-y-2">
+							<Label for="name">Recipient Name</Label>
+							<Input
+								id="name"
+								bind:value={$form.name}
+								name="name"
+								placeholder="John Doe"
+								required
+							/>
+							{#if $errors.name}
+								<p class="text-sm text-red-600">{$errors?.name}</p>
+							{/if}
+						</div>
+						<div class="space-y-2">
+							<Label for="email">Recipient Email</Label>
+							<Input
+								id="email"
+								name="email"
+								bind:value={$form.email}
+								type="email"
+								placeholder="john@example.com"
+								required
+							/>
+							{#if $errors.email}
+								<p class="text-sm text-red-600">{$errors?.email}</p>
+							{/if}
+						</div>
+					</div>
 
-				<Button type="submit" disabled={loading} class="w-full transition-all active:scale-95">
-					{#if loading}
-						<Loader class="mr-2 h-4 w-4 animate-spin" />
-						Sending...
-					{:else}
-						<SendHorizontal class="mr-2 h-4 w-4" />
-						Send Email
-					{/if}
-				</Button>
-			</form>
+					<div class="space-y-2">
+						<Label for="subject">Subject Line</Label>
+						<Input
+							id="subject"
+							bind:value={$form.subject}
+							name="subject"
+							placeholder="Project Update Regarding..."
+							required
+						/>
+						{#if $errors.subject}
+							<p class="text-sm text-red-600">{$errors?.subject}</p>
+						{/if}
+					</div>
+
+					<div class="space-y-2">
+						<Label>Message Body</Label>
+						<div
+							class="min-h-[200px] rounded-md border border-input bg-background transition-colors focus-within:ring-1 focus-within:ring-ring"
+						>
+							<RichTextEditor bind:value={$form.message} />
+						</div>
+						<input type="hidden" name="message" bind:value={$form.message} />
+					</div>
+
+					<Button type="submit" disabled={$delayed} class="w-full transition-all hover:scale-105">
+						{#if $delayed}
+							<Loader class="mr-2 h-4 w-4 animate-spin" />
+							Sending...
+						{:else}
+							<SendHorizontal class="mr-2 h-4 w-4" />
+							Send Email
+						{/if}
+					</Button>
+				</form>
+			{/if}
 		</Card.Content>
 	</Card.Root>
 </main>
-
-<div class="fixed right-4 bottom-4 z-50 flex flex-col gap-2">
-	{#if visible}
-		<div
-			transition:fly={{ x: 100, duration: 300 }}
-			class="flex items-center gap-3 rounded-lg bg-primary p-4 text-primary-foreground shadow-2xl"
-		>
-			<CircleCheck class="h-5 w-5" />
-			<p class="text-sm font-medium">{form?.message || 'Email sent successfully!'}</p>
-		</div>
-	{/if}
-
-	{#if errorVisible}
-		<div
-			transition:fly={{ x: 100, duration: 300 }}
-			class="text-destructive-foreground flex items-center gap-3 rounded-lg bg-destructive p-4 shadow-2xl"
-		>
-			<CircleAlert class="h-5 w-5" />
-			<p class="text-sm font-medium">{form?.message || 'Failed to send email.'}</p>
-		</div>
-	{/if}
-</div>
